@@ -23,7 +23,7 @@ static TRACK: Lazy<Mutex<Track>> = Lazy::new(|| Mutex::new(Track::new(
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![clear, add_line, add_entity, entity_positions_at])
+        .invoke_handler(tauri::generate_handler![clear, add_line, remove_line, add_entity, remove_entity, entity_positions_at])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -61,7 +61,7 @@ fn remove_entity(js_entity: SerializableEntity) -> Result<(), String> {
     let mut track = TRACK.deref().lock().unwrap();
 
     let entity: Result<Entity, anyhow::Error> = js_entity.into();
-    track.remove_entity(entity.map_err(|err| err.to_string())?).ok_or(|| "entity not found".to_owned())
+    track.remove_entity(entity.map_err(|err| err.to_string())?).ok_or("entity not found".to_owned())
 }
 
 #[command]
