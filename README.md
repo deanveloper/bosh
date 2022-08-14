@@ -1,34 +1,23 @@
-## Usage
+# bosh
 
-Those templates dependencies are maintained via [pnpm](https://pnpm.io) via `pnpm up -Lri`.
+Bosh is a linerider client.
 
-This is the reason you see a `pnpm-lock.yaml`. That being said, any package manager will work. This file can be safely be removed once you clone a template.
+## Installation
 
-```bash
-$ npm install # or pnpm install or yarn install
-```
+In the future I will provide prebuilt executables. Until then, here is how to install from source:
 
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
+1. Install Tauri. Here is a [tutorial](https://tauri.app/v1/guides/getting-started/prerequisites/)
+   which should insruct you on how to install Tauri on your system.
+2. Clone the repository.
+3. In the project root, run `npm install` to install dev dependencies.
+4. Run `tauri dev` to run the development environment on your system.
+    1. I don't recommend running `tauri build` as this builds a release build
+       instead of a development build and takes a _much_ longer time.
 
-## Available Scripts
+### Architecture
 
-In the project directory, you can run:
+* The physics engine is [bosh-rs]
+* This project is a [bosh-rs] frontend using Tauri
+* Vite and SolidJS are used for easy UI development
 
-### `npm dev` or `npm start`
-
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.<br>
-
-### `npm run build`
-
-Builds the app for production to the `dist` folder.<br>
-It correctly bundles Solid in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
-
-## Deployment
-
-You can deploy the `dist` folder to any static host provider (netlify, surge, now, etc.)
+[bosh-rs]: https://github.com/deanveloper/bosh-rs
