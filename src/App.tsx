@@ -1,4 +1,4 @@
-import type { Component } from 'solid-js';
+import type { Component, Setter } from 'solid-js';
 import {
 	createEffect,
 	createSignal,
@@ -14,9 +14,26 @@ import {
 	Entity,
 	entityPositionsAt,
 	Line,
-} from './tauri_commands';
+} from './rust_interop/tauri_commands';
 import ButtonBar from './components/ButtonBar';
 import GameArea from './components/GameArea';
+
+function initializeGame(setLines: Setter<Line[]>) {
+	addEntity({
+		entityType: 'BoshSled',
+	}).catch((err) => console.error(err));
+
+	addLine({
+		ends: [
+			[-50, 0],
+			[50, 30],
+		],
+		flipped: false,
+		lineType: 'Normal',
+	})
+		.then((newLines) => setLines(newLines))
+		.catch((err) => console.error(err));
+}
 
 const App: Component = () => {
 	const [frame, setFrame] = createSignal(0);
@@ -24,31 +41,20 @@ const App: Component = () => {
 	const [lines, setLines] = createSignal<Line[]>([]);
 
 	onMount(() => {
-		addEntity({
-			entityType: 'BoshSled',
-		}).catch(err => console.error(err));
-
-		addLine({
-			ends: [
-				[-50, 0],
-				[50, 30],
-			],
-			flipped: false,
-			lineType: 'Normal',
-		})
-			.then(newLines => setLines(newLines))
-			.catch(err => console.error(err));
-
-		window.addEventListener('keydown', keyDown);
-
-		onCleanup(() => {
-			window.removeEventListener('keydown', keyDown);
-		});
+		initializeGame(setLines);
 	});
+
+	// set riders when frame changes
 	createEffect(() => {
 		entityPositionsAt(frame())
-			.then(pos => setRiders(pos))
-			.catch(err => console.error(err));
+			.then((pos) => setRiders(pos))
+			.catch((err) => console.error(err));
+	});
+
+	// add event listener for keybinds
+	window.addEventListener('keydown', keyDown);
+	onCleanup(() => {
+		window.removeEventListener('keydown', keyDown);
 	});
 
 	return (
@@ -59,13 +65,16 @@ const App: Component = () => {
 						position: 'absolute',
 						width: '100%',
 						display: 'flex',
-						justifyContent: 'center',
+						'justify-content': 'center',
 					}}
 					frame={frame()}
 					setFrame={setFrame}
 				/>
 				<GameArea
-					camera={{ x: 0, y: 0 }}
+					camera={{
+						x: riders()[0]?.points?.BoshButt?.[0] ?? 0,
+						y: riders()[0]?.points?.BoshButt?.[1] ?? 0,
+					}}
 					width={500}
 					height={500}
 					zoom={3}

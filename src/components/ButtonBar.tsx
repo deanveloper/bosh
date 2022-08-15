@@ -1,25 +1,25 @@
-import { Component, JSX } from 'solid-js';
-import ButtonWithHold from './ButtonWithHold';
+import { JSX, Setter } from 'solid-js';
+import HoldableButton from './HoldableButton';
 
-const ButtonBar: Component<{
+function ButtonBar(props: {
 	style?: JSX.CSSProperties;
 	frame: number;
-	setFrame: (i: number) => void;
-}> = props => {
+	setFrame: Setter<number>;
+}): JSX.Element {
 	return (
 		<div style={props.style}>
-			<ButtonWithHold
+			<HoldableButton
 				disabled={props.frame <= 0}
 				onClick={() => props.setFrame(props.frame - 1)}
 			>
 				{'<'}
-			</ButtonWithHold>
-			<ButtonWithHold onClick={() => props.setFrame(props.frame + 1)}>
+			</HoldableButton>
+			<HoldableButton onClick={() => props.setFrame(props.frame + 1)}>
 				{'>'}
-			</ButtonWithHold>
+			</HoldableButton>
 			<span>(frame: {props.frame})</span>
 		</div>
 	);
-};
+}
 
 export default ButtonBar;

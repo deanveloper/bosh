@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
-use bosh_rs::physics::entity_physics::PhysicsEntity;
-use bosh_rs::rider::{Bosh, BoshSled, Entity, PointIndex, Sled};
+use anyhow::{anyhow, Context};
+use bosh_rs::rider::{Entity, PointIndex};
 use bosh_rs::Vector2D;
 use serde::{Deserialize, Serialize};
 
@@ -15,28 +14,15 @@ pub enum EntityType {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializableEntity {
-    #[serde(alias = "entityType")]
-    pub entity_type: EntityType,
+    #[serde(alias = "entityType", skip_serializing_if = "Option::is_none")]
+    pub entity_type: Option<EntityType>,
     #[serde(default)]
     pub points: HashMap<String, (f64, f64)>,
 }
 
 impl SerializableEntity {
     pub fn new(entity: &Entity) -> SerializableEntity {
-        let (etype, points) = match entity {
-            Entity::Bosh(bosh) => {
-                (EntityType::Bosh, bosh.points.clone())
-            }
-            Entity::Sled(sled) => {
-                (EntityType::Sled, sled.points.clone())
-            }
-            Entity::BoshSled(bosh_sled) => {
-                let mut points = bosh_sled.bosh.points.clone();
-                points.extend(bosh_sled.sled.points.clone());
-
-                (EntityType::BoshSled, points)
-            }
-        };
+        let points = &entity.points;
 
         let points_serialized: HashMap<String, (f64, f64)> = points.iter().map(|(idx, point)| {
             let loc = point.location;
@@ -45,7 +31,7 @@ impl SerializableEntity {
         }).collect();
 
         SerializableEntity {
-            entity_type: etype,
+            entity_type: None,
             points: points_serialized,
         }
     }
@@ -53,28 +39,28 @@ impl SerializableEntity {
 
 impl<E: From<anyhow::Error>> Into<Result<Entity, E>> for SerializableEntity {
     fn into(self) -> Result<Entity, E> {
-        match self.entity_type {
+        match self.entity_type.context("entity type not provided")? {
             EntityType::Bosh => {
-                let mut bosh: Bosh = Default::default();
+                let mut bosh = Entity::default_bosh();
                 for point in self.points {
                     bosh.point_at_mut(string_to_point_index(&point.0)?).location = Vector2D(point.1.0, point.1.1);
                 }
-                Ok(Entity::Bosh(bosh))
+                Ok(bosh)
             }
             EntityType::Sled => {
-                let mut sled: Sled = Default::default();
+                let mut sled = Entity::default_sled();
                 for point in self.points {
                     sled.point_at_mut(string_to_point_index(&point.0)?).location = Vector2D(point.1.0, point.1.1);
                 }
-                Ok(Entity::Sled(sled))
+                Ok(sled)
             }
             EntityType::BoshSled => {
-                let mut bosh_sled: BoshSled = Default::default();
+                let mut bosh_sled = Entity::default_boshsled();
 
                 for point in self.points {
                     bosh_sled.point_at_mut(string_to_point_index(&point.0)?).location = Vector2D(point.1.0, point.1.1);
                 }
-                Ok(Entity::BoshSled(bosh_sled))
+                Ok(bosh_sled)
             }
         }
     }

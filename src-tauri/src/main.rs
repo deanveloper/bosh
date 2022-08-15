@@ -65,8 +65,8 @@ fn remove_entity(js_entity: SerializableEntity) -> Result<(), String> {
 }
 
 #[command]
-fn entity_positions_at(frame: u64) -> Vec<SerializableEntity> {
-    let serialized_positions = TRACK.deref().lock().unwrap().rider_positions_at(frame as usize)
+fn entity_positions_at(frame: usize) -> Vec<SerializableEntity> {
+    let serialized_positions = TRACK.deref().lock().unwrap().entity_positions_at(frame)
         .into_iter()
         .map(|entity| SerializableEntity::new(&entity))
         .collect();
