@@ -1,6 +1,7 @@
-import { onCleanup, onMount } from 'solid-js';
-import { Entity, Line, PointIndex } from '../rust_interop/tauri_commands';
+import { onCleanup, onMount, useContext } from 'solid-js';
+import { PointIndex } from '../rust_interop/tauri_commands';
 import { useScreenDimensions } from '../event/event_managers';
+import { GameContext } from '../App';
 
 function colorForIndex(index: PointIndex): string {
 	if (index.startsWith('Bosh')) {
@@ -13,15 +14,11 @@ function colorForIndex(index: PointIndex): string {
 	return 'black';
 }
 
-function GameArea(props: {
-	camera: { x: number; y: number };
-	zoom: number;
-	entities: Entity[];
-	lines: Line[];
-}) {
+function GameArea(props: { camera: { x: number; y: number }; zoom: number }) {
 	let canvas: HTMLCanvasElement;
 
 	let [width, height] = useScreenDimensions();
+	let game = useContext(GameContext);
 
 	const worldToScreen = (coord: [number, number]): [number, number] => {
 		return [
@@ -42,7 +39,7 @@ function GameArea(props: {
 			frame = requestAnimationFrame((newT) => loop(ctx, newT));
 
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			for (const line of props.lines) {
+			for (const line of game.lines()) {
 				const startCoord = worldToScreen(line.ends[0]);
 				const endCoord = worldToScreen(line.ends[1]);
 
@@ -53,7 +50,8 @@ function GameArea(props: {
 				ctx.lineTo(...endCoord);
 				ctx.stroke();
 			}
-			for (const entity of props.entities) {
+			for (const entity of game.entities()) {
+				// @ts-ignore (typescript hates Object.entries with string-union keys)
 				for (const [name, coord] of Object.entries(entity.points)) {
 					const canvasCoord = worldToScreen(coord);
 
@@ -76,6 +74,7 @@ function GameArea(props: {
 		onCleanup(() => cancelAnimationFrame(frame));
 	});
 
+	// @ts-ignore (ref is special)
 	return <canvas width={width()} height={height()} ref={canvas} />;
 }
 

@@ -1,8 +1,11 @@
 import type { Component, Setter } from 'solid-js';
 import {
+	createContext,
 	createEffect,
+	createMemo,
 	createSignal,
 	ErrorBoundary,
+	JSX,
 	onCleanup,
 	onMount,
 } from 'solid-js';
@@ -37,7 +40,7 @@ function initializeGame(setLines: Setter<Line[]>) {
 
 const App: Component = () => {
 	const [frame, setFrame] = createSignal(0);
-	const [riders, setRiders] = createSignal<Entity[]>([]);
+	const [entities, setEntities] = createSignal<Entity[]>([]);
 	const [lines, setLines] = createSignal<Line[]>([]);
 
 	onMount(() => {
@@ -47,7 +50,7 @@ const App: Component = () => {
 	// set riders when frame changes
 	createEffect(() => {
 		entityPositionsAt(frame())
-			.then((pos) => setRiders(pos))
+			.then((pos) => setEntities(pos))
 			.catch((err) => console.error(err));
 	});
 
@@ -57,33 +60,48 @@ const App: Component = () => {
 		window.removeEventListener('keydown', keyDown);
 	});
 
+	const game = createMemo(() => ({
+		frame: frame,
+		setFrame: setFrame,
+		lines: lines,
+		entities: entities,
+	}));
+
 	return (
 		<div>
 			<ErrorBoundary fallback={'error lol'}>
-				<ButtonBar
-					style={{
-						position: 'absolute',
-						width: '100%',
-						display: 'flex',
-						'justify-content': 'center',
-					}}
-					frame={frame()}
-					setFrame={setFrame}
-				/>
-				<GameArea
-					camera={{
-						x: riders()[0]?.points?.BoshButt?.[0] ?? 0,
-						y: riders()[0]?.points?.BoshButt?.[1] ?? 0,
-					}}
-					width={500}
-					height={500}
-					zoom={3}
-					entities={riders()}
-					lines={lines()}
-				/>
+				<GameContext.Provider value={game()}>
+					<ButtonBar
+						style={{
+							position: 'absolute',
+							width: '100%',
+							display: 'flex',
+							'justify-content': 'center',
+						}}
+					/>
+					<GameArea
+						camera={{
+							x: entities()[0]?.points?.BoshButt?.[0] ?? 0,
+							y: entities()[0]?.points?.BoshButt?.[1] ?? 0,
+						}}
+						zoom={3}
+					/>
+				</GameContext.Provider>
 			</ErrorBoundary>
 		</div>
 	);
 };
+
+export const GameContext = createContext<{
+	frame: JSX.Accessor<number>;
+	setFrame: Setter<number>;
+	lines: JSX.Accessor<Line[]>;
+	entities: JSX.Accessor<Entity[]>;
+}>({
+	frame: () => 0,
+	setFrame: (() => undefined) as Setter<number>,
+	lines: () => [],
+	entities: () => [],
+});
 
 export default App;

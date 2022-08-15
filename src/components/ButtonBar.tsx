@@ -1,23 +1,22 @@
-import { JSX, Setter } from 'solid-js';
+import { JSX, useContext } from 'solid-js';
 import HoldableButton from './HoldableButton';
+import { GameContext } from '../App';
 
-function ButtonBar(props: {
-	style?: JSX.CSSProperties;
-	frame: number;
-	setFrame: Setter<number>;
-}): JSX.Element {
+function ButtonBar(props: { style?: JSX.CSSProperties }): JSX.Element {
+	const game = useContext(GameContext);
+
 	return (
 		<div style={props.style}>
 			<HoldableButton
-				disabled={props.frame <= 0}
-				onClick={() => props.setFrame(props.frame - 1)}
+				disabled={game.frame() <= 0}
+				onClick={() => game.setFrame(game.frame() - 1)}
 			>
 				{'<'}
 			</HoldableButton>
-			<HoldableButton onClick={() => props.setFrame(props.frame + 1)}>
+			<HoldableButton onClick={() => game.setFrame(game.frame() + 1)}>
 				{'>'}
 			</HoldableButton>
-			<span>(frame: {props.frame})</span>
+			<span>(frame: {game.frame})</span>
 		</div>
 	);
 }
