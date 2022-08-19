@@ -14,22 +14,27 @@ import { keyDown } from './hotkeys';
 import {
 	addEntity,
 	addLine,
-	Entity,
 	entityPositionsAt,
-	Line,
 } from './rust_interop/tauri_commands';
 import ButtonBar from './components/ButtonBar';
 import GameArea from './components/GameArea';
+import { Line, RealEntity } from './rust_interop/tauri_types';
+
+import './App.module.css';
 
 function initializeGame(setLines: Setter<Line[]>) {
 	addEntity({
-		entityType: 'BoshSled',
+		default: { starting_position: [0, 0] },
 	}).catch((err) => console.error(err));
 
 	addLine({
 		ends: [
-			[-50, 0],
-			[50, 30],
+			{
+				location: [-50, 0],
+			},
+			{
+				location: [50, 30],
+			},
 		],
 		flipped: false,
 		lineType: 'Normal',
@@ -40,7 +45,7 @@ function initializeGame(setLines: Setter<Line[]>) {
 
 const App: Component = () => {
 	const [frame, setFrame] = createSignal(0);
-	const [entities, setEntities] = createSignal<Entity[]>([]);
+	const [entities, setEntities] = createSignal<RealEntity[]>([]);
 	const [lines, setLines] = createSignal<Line[]>([]);
 
 	onMount(() => {
@@ -81,10 +86,14 @@ const App: Component = () => {
 					/>
 					<GameArea
 						camera={{
-							x: entities()[0]?.points?.BoshButt?.[0] ?? 0,
-							y: entities()[0]?.points?.BoshButt?.[1] ?? 0,
+							x:
+								entities()[0]?.points?.BoshButt
+									?.location?.[0] ?? 0,
+							y:
+								entities()[0]?.points?.BoshButt
+									?.location?.[1] ?? 0,
 						}}
-						zoom={3}
+						zoom={5}
 					/>
 				</GameContext.Provider>
 			</ErrorBoundary>
@@ -96,7 +105,7 @@ export const GameContext = createContext<{
 	frame: JSX.Accessor<number>;
 	setFrame: Setter<number>;
 	lines: JSX.Accessor<Line[]>;
-	entities: JSX.Accessor<Entity[]>;
+	entities: JSX.Accessor<RealEntity[]>;
 }>({
 	frame: () => 0,
 	setFrame: (() => undefined) as Setter<number>,

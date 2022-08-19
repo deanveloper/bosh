@@ -9,16 +9,13 @@ use std::sync::Mutex;
 use bosh_rs;
 use bosh_rs::{Line, Track};
 use bosh_rs::rider::Entity;
+use bosh_rs::serialization::boshtf::BoshTFEntity;
 use once_cell::sync::Lazy;
 use tauri::command;
 
-use crate::serialized_types::SerializableEntity;
-
-mod serialized_types;
-
 static TRACK: Lazy<Mutex<Track>> = Lazy::new(|| Mutex::new(Track::new(
-    &[],
-    &vec![],
+    vec![],
+    vec![],
 )));
 
 fn main() {
@@ -30,7 +27,7 @@ fn main() {
 
 #[command]
 fn add_line(line: Line) -> Result<Vec<Line>, String> {
-    let mut track = TRACK.deref().lock().unwrap();
+    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
 
     track.add_line(line);
 
@@ -39,37 +36,36 @@ fn add_line(line: Line) -> Result<Vec<Line>, String> {
 
 #[command]
 fn remove_line(line: Line) -> Result<Vec<Line>, String> {
-    let mut track = TRACK.deref().lock().unwrap();
+    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
 
-    track.remove_line(line);
+    track.remove_line(&line);
 
     Ok(track.all_lines().clone())
 }
 
 #[command]
-fn add_entity(js_entity: SerializableEntity) -> Result<(), String> {
-    let mut track = TRACK.deref().lock().unwrap();
+fn add_entity(entity: BoshTFEntity) -> Result<(), String> {
+    let entity: Entity = (&entity).into();
+    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
 
-    let entity: Result<Entity, anyhow::Error> = js_entity.into();
-    track.create_entity(entity.map_err(|err| err.to_string())?);
+    track.create_entity(entity);
 
     Ok(())
 }
 
 #[command]
-fn remove_entity(js_entity: SerializableEntity) -> Result<(), String> {
-    let mut track = TRACK.deref().lock().unwrap();
+fn remove_entity(entity: BoshTFEntity) -> Result<(), String> {
+    let entity: Entity = (&entity).into();
+    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
 
-    let entity: Result<Entity, anyhow::Error> = js_entity.into();
-    track.remove_entity(entity.map_err(|err| err.to_string())?).ok_or("entity not found".to_owned())
+    track.remove_entity(entity);
+
+    Ok(())
 }
 
 #[command]
-fn entity_positions_at(frame: usize) -> Vec<SerializableEntity> {
-    let serialized_positions = TRACK.deref().lock().unwrap().entity_positions_at(frame)
-        .into_iter()
-        .map(|entity| SerializableEntity::new(&entity))
-        .collect();
+fn entity_positions_at(frame: usize) -> Vec<Entity> {
+    let serialized_positions = TRACK.deref().lock().unwrap().entity_positions_at(frame);
 
     serialized_positions
 }
@@ -78,5 +74,5 @@ fn entity_positions_at(frame: usize) -> Vec<SerializableEntity> {
 fn clear() {
     let mut track = TRACK.deref().lock().unwrap();
 
-    *track = Track::new(&[], &vec![]);
+    *track = Track::new(vec![], vec![]);
 }
