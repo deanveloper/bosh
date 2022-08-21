@@ -29,7 +29,7 @@ export type RealEntity = {
 
 export type Entity =
 	| {
-			default: { starting_position: [number, number] };
+			boshSled: { starting_position: [number, number] };
 	  }
 	| {
 			custom: RealEntity;

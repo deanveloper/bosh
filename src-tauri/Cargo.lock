@@ -135,6 +135,7 @@ dependencies = [
  "anyhow",
  "bosh-rs",
  "once_cell",
+ "read-from",
  "serde",
  "serde_json",
  "tauri",
@@ -148,7 +149,6 @@ dependencies = [
  "anyhow",
  "read-from",
  "serde",
- "serde_repr",
 ]
 
 [[package]]

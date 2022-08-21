@@ -1,33 +1,40 @@
 #![cfg_attr(
-all(not(debug_assertions), target_os = "windows"),
-windows_subsystem = "windows"
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
 )]
 
 use std::ops::Deref;
 use std::sync::Mutex;
 
-use bosh_rs;
-use bosh_rs::{Line, Track};
 use bosh_rs::rider::Entity;
-use bosh_rs::serialization::boshtf::BoshTFEntity;
+use bosh_rs::{Line, Track};
 use once_cell::sync::Lazy;
 use tauri::command;
 
-static TRACK: Lazy<Mutex<Track>> = Lazy::new(|| Mutex::new(Track::new(
-    vec![],
-    vec![],
-)));
+use crate::serialization::boshtf::{BoshTFEntity, BoshTFTrack};
+
+mod serialization;
+mod track_loading;
+
+static TRACK: Lazy<Mutex<Track>> = Lazy::new(|| Mutex::new(Track::new(vec![], vec![])));
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![clear, add_line, remove_line, add_entity, remove_entity, entity_positions_at])
+        .invoke_handler(tauri::generate_handler![
+            clear,
+            add_line,
+            remove_line,
+            add_entity,
+            remove_entity,
+            entity_positions_at
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[command]
-fn add_line(line: Line) -> Result<Vec<Line>, String> {
-    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
+fn add_line(line: Line) -> anyhow::Result<Vec<Line>, String> {
+    let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
     track.add_line(line);
 
@@ -36,7 +43,7 @@ fn add_line(line: Line) -> Result<Vec<Line>, String> {
 
 #[command]
 fn remove_line(line: Line) -> Result<Vec<Line>, String> {
-    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
+    let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
     track.remove_line(&line);
 
@@ -44,9 +51,9 @@ fn remove_line(line: Line) -> Result<Vec<Line>, String> {
 }
 
 #[command]
-fn add_entity(entity: BoshTFEntity) -> Result<(), String> {
+fn add_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
     let entity: Entity = (&entity).into();
-    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
+    let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
     track.create_entity(entity);
 
@@ -54,9 +61,9 @@ fn add_entity(entity: BoshTFEntity) -> Result<(), String> {
 }
 
 #[command]
-fn remove_entity(entity: BoshTFEntity) -> Result<(), String> {
+fn remove_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
     let entity: Entity = (&entity).into();
-    let mut track = TRACK.deref().lock().map_err(|err| err.to_string())?;
+    let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
     track.remove_entity(entity);
 
@@ -64,10 +71,18 @@ fn remove_entity(entity: BoshTFEntity) -> Result<(), String> {
 }
 
 #[command]
-fn entity_positions_at(frame: usize) -> Vec<Entity> {
-    let serialized_positions = TRACK.deref().lock().unwrap().entity_positions_at(frame);
+fn entity_positions_at(frame: usize) -> anyhow::Result<Vec<Entity>, String> {
+    let serialized_positions = TRACK
+        .lock()
+        .map_err(|err| err.to_string())?
+        .entity_positions_at(frame);
 
-    serialized_positions
+    Ok(serialized_positions)
+}
+
+#[command]
+fn load_track(path: String) -> anyhow::Result<BoshTFTrack> {
+    track_loading::load(&path)
 }
 
 #[command]
