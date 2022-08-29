@@ -1,22 +1,32 @@
 import { JSX, useContext } from 'solid-js';
 import HoldableButton from './HoldableButton';
-import { GameContext } from '../App';
+import { GameContext } from '../rust_interop/game_manager';
 
 function ButtonBar(props: { style?: JSX.CSSProperties }): JSX.Element {
-	const game = useContext(GameContext);
+	const gameManager = useContext(GameContext);
 
 	return (
 		<div style={props.style}>
 			<HoldableButton
-				disabled={game.frame() <= 0}
-				onClick={() => game.setFrame(game.frame() - 1)}
+				disabled={gameManager.frame() <= 0}
+				onClick={() => gameManager.setFrame(gameManager.frame() - 1)}
 			>
 				{'<'}
 			</HoldableButton>
-			<HoldableButton onClick={() => game.setFrame(game.frame() + 1)}>
+			<HoldableButton
+				onClick={() => gameManager.setFrame(gameManager.frame() + 1)}
+			>
 				{'>'}
 			</HoldableButton>
-			<span>(frame: {game.frame})</span>
+			<button
+				onClick={() =>
+					gameManager.loadTrack(
+						'C:/Users/dean/Desktop/uh oh.trk',
+					)
+				}
+			>
+				Load Track
+			</button>
 		</div>
 	);
 }

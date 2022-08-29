@@ -1,8 +1,8 @@
 import { onCleanup, onMount, useContext } from 'solid-js';
 import { useScreenDimensions } from '../event/event_managers';
-import { GameContext } from '../App';
 import { BoshImage, BoshImages } from '../rider_data/rider_data';
 import { EntityPoint, Line } from '../rust_interop/tauri_types';
+import { GameContext } from '../rust_interop/game_manager';
 
 function getAngleForPoints(p1: [number, number], p2: [number, number]) {
 	return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
@@ -23,7 +23,7 @@ function GameArea(props: { camera: { x: number; y: number }; zoom: number }) {
 	let canvas: HTMLCanvasElement;
 
 	let [width, height] = useScreenDimensions();
-	let game = useContext(GameContext);
+	let gameManager = useContext(GameContext);
 
 	const worldToScreen = (coord: [number, number]): [number, number] => {
 		return [
@@ -34,6 +34,19 @@ function GameArea(props: { camera: { x: number; y: number }; zoom: number }) {
 
 	onMount(() => {
 		const ctx = canvas.getContext('2d')!;
+
+		function drawCircle(
+			color: string,
+			coord: [number, number],
+			radius: number,
+		) {
+			ctx.strokeStyle = color;
+			ctx.fillStyle = color;
+			ctx.lineWidth = radius;
+			ctx.beginPath();
+			ctx.ellipse(...coord, radius, radius, 0, 0, Math.PI * 2);
+			ctx.fill();
+		}
 
 		function drawLine(line: Line) {
 			const startCoord = worldToScreen(line.ends[0].location);
@@ -84,10 +97,10 @@ function GameArea(props: { camera: { x: number; y: number }; zoom: number }) {
 			frame = requestAnimationFrame((newT) => loop(ctx, newT));
 
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			for (const line of game.lines()) {
+			for (const line of gameManager.lines()) {
 				drawLine(line);
 			}
-			for (const entity of game.entities()) {
+			for (const entity of gameManager.entities()) {
 				renderImageBetweenPoints(BoshImages.bosh, entity.points, [
 					'BoshButt',
 					'BoshShoulder',
@@ -112,6 +125,30 @@ function GameArea(props: { camera: { x: number; y: number }; zoom: number }) {
 					'SledPeg',
 					'SledRope',
 				]);
+
+				for (const point of Object.values(entity.points)) {
+					drawCircle('red', worldToScreen(point.location), 2);
+					drawCircle(
+						'pink',
+						worldToScreen(point.previousLocation),
+						2,
+					);
+
+					function add(
+						v1: [number, number],
+						v2: [number, number],
+					): [number, number] {
+						return [v1[0] + v2[0] * 3, v1[1] + v2[1] * 3];
+					}
+
+					ctx.strokeStyle = 'blue';
+					ctx.beginPath();
+					ctx.moveTo(...worldToScreen(point.location));
+					ctx.lineTo(
+						...worldToScreen(add(point.location, point.momentum)),
+					);
+					ctx.stroke();
+				}
 			}
 		}
 

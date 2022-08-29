@@ -59,3 +59,11 @@ export function useScreenDimensions(): [
 
 	return [width, height];
 }
+
+export function useScroll(onScroll: (ev: WheelEvent) => void) {
+	onMount(() => {
+		window.addEventListener('wheel', onScroll);
+
+		onCleanup(() => window.removeEventListener('wheel', onScroll));
+	})
+}

@@ -1,6 +1,7 @@
 export type EntityPoint = {
 	previousLocation: [number, number];
 	location: [number, number];
+	momentum: [number, number];
 	friction: number;
 };
 
@@ -21,18 +22,21 @@ export type Bone = {
 	bone_type: BoneType;
 };
 
-export type RealEntity = {
+export type RuntimeEntity = {
 	points: Record<string, EntityPoint>;
 	bones: Bone[];
 	joints: Joint[];
 };
 
-export type Entity =
+export type EntityStart =
 	| {
-			boshSled: { starting_position: [number, number] };
+			boshSled: {
+				position: [number, number];
+				velocity?: [number, number];
+			};
 	  }
 	| {
-			custom: RealEntity;
+			custom: RuntimeEntity;
 	  };
 
 export type LinePoint = {
@@ -44,4 +48,10 @@ export type Line = {
 	flipped: boolean;
 	lineType: 'Normal' | { Accelerate: { accel: number } } | 'Scenery';
 	ends: [LinePoint, LinePoint];
+};
+
+export type Track = {
+	meta?: Record<string, any>; // todo strong types
+	lines: Line[];
+	entities: EntityStart[];
 };

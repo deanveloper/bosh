@@ -30,6 +30,7 @@ fn default_starting_velocity() -> Vector2D {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoshTFTrack {
+    #[serde(default)]
     pub meta: TrackMeta,
     pub entities: Vec<BoshTFEntity>,
     pub lines: Vec<BoshTFLine>,
@@ -51,7 +52,7 @@ impl From<&BoshTFEntity> for Entity {
                 let mut bosh_sled = Entity::default_boshsled();
                 bosh_sled.mutate_points(|point| {
                     point.location += *position;
-                    point.previous_location += *position - *velocity;
+                    point.previous_location = point.location - *velocity;
                 });
 
                 bosh_sled

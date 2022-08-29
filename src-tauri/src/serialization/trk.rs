@@ -6,10 +6,10 @@ use std::io;
 use std::io::Read;
 
 use anyhow::{anyhow, Context, Error, Result};
-use bosh_rs::{Line, LinePoint, LineType, Vector2D};
+use bosh_rs::{Line, LineType, Vector2D};
 use read_from::{LittleEndian, ReadFrom};
 
-use crate::serialization::boshtf::BoshTFLine;
+use crate::serialization::boshtf::{BoshTFLine, BoshTFLineType};
 use crate::{BoshTFEntity, BoshTFTrack};
 
 pub enum TrkFeature {
@@ -63,17 +63,6 @@ impl TryFrom<&str> for TrkFeature {
 
             _ => Err(anyhow!("could not find feature for {}", value)),
         }
-    }
-}
-
-pub struct ReaderWithFeatures<R: Read> {
-    pub reader: R,
-    pub features: HashSet<String>,
-}
-
-impl<R: Read> Read for ReaderWithFeatures<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.reader.read(buf)
     }
 }
 
@@ -131,7 +120,7 @@ impl TrkLineFlags {
         self.0 & 0b10000000 > 0
     }
     pub fn extensions(&self) -> (bool, bool) {
-        (self.0 & 0b01000000 > 0, self.0 & 0b00100000 > 0)
+        (self.0 & 0b00100000 > 0, self.0 & 0b01000000 > 0)
     }
     pub fn line_type(&self) -> TrkLineType {
         (self.0 & 0b00011111).into()
@@ -235,18 +224,26 @@ impl TrkLine {
         let id = if matches!(flags.line_type(), TrkLineType::Red | TrkLineType::Blue) {
             // ignore line triggers
             if features.contains(&TrkFeature::IgnorableTrigger.to_string()) {
-                u8::read_from(&mut input).context("error while reading line triggers")?;
+                let zoom = u8::read_from(&mut input).context("error while reading zoom trigger")?;
+                if zoom != 0 {
+                    LittleEndian::<f32>::read_from(&mut input)
+                        .context("error while reading zoom target")?;
+                    LittleEndian::<i16>::read_from(&mut input)
+                        .context("error while reading zoom length")?;
+                }
             }
 
             let id = LittleEndian::<i32>::read_from(&mut input)
                 .context("error while reading line id")?
                 .0;
 
-            // ignore useless line extensions
-            LittleEndian::<i32>::read_from(&mut input)
-                .context("error while reading line ext data 1")?;
-            LittleEndian::<i32>::read_from(&mut input)
-                .context("error while reading line ext data 2")?;
+            if flags.extensions().0 || flags.extensions().1 {
+                // ignore useless line extensions
+                LittleEndian::<i32>::read_from(&mut input)
+                    .context("error while reading line ext data 1")?;
+                LittleEndian::<i32>::read_from(&mut input)
+                    .context("error while reading line ext data 2")?;
+            }
 
             id
         } else {
@@ -297,7 +294,10 @@ impl TrkMeta {
                 return Ok(None);
             }
         }
-        magic.context("error while reading magic value in metadata")?;
+        let magic = magic.context("error while reading magic value in metadata")?;
+        if magic != [b'M', b'E', b'T', b'A'] {
+            return Err(anyhow!("magic value in metadata was not correct"));
+        }
 
         let count = LittleEndian::<i16>::read_from(&mut input)
             .context("error while reading number of metadata entries")?
@@ -352,22 +352,29 @@ impl ReadFrom for TrkTrack {
 
 // ======= TRK -> BOSHTF ========
 
+impl TrkLineType {
+    fn as_boshtf(&self, multiplier: u8) -> BoshTFLineType {
+        match self {
+            TrkLineType::Blue => BoshTFLineType::Normal,
+            TrkLineType::Red => BoshTFLineType::Accelerate {
+                amount: multiplier as u64,
+            },
+            TrkLineType::Scenery => BoshTFLineType::Scenery,
+        }
+    }
+}
+
 impl From<&TrkLine> for BoshTFLine {
     fn from(line: &TrkLine) -> Self {
-        BoshTFLine {
-            ends: (
-                LinePoint {
-                    location: line.start,
-                    extended: line.flags.extensions().0,
-                },
-                LinePoint {
-                    location: line.end,
-                    extended: line.flags.extensions().1,
-                },
-            ),
-            line_type: Default::default(),
-            flipped: false,
-        }
+        BoshTFLine::builder()
+            .extension_ratio(0.25)
+            .flipped(line.flags.flipped())
+            .line_type(line.flags.line_type().as_boshtf(line.multiplier))
+            .point_vec(line.start)
+            .extended(line.flags.extensions().0)
+            .point_vec(line.end)
+            .extended(line.flags.extensions().1)
+            .build()
     }
 }
 

@@ -1,103 +1,81 @@
-import type {Component, Setter} from 'solid-js';
-import {createContext, createEffect, createMemo, createSignal, ErrorBoundary, JSX, onCleanup, onMount,} from 'solid-js';
-import {keyDown} from './hotkeys';
-
-import {addEntity, addLine, entityPositionsAt,} from './rust_interop/tauri_commands';
+import type { Component } from 'solid-js';
+import { createSignal, ErrorBoundary, onCleanup, onMount } from 'solid-js';
+import { keyDown } from './event/hotkeys';
 import ButtonBar from './components/ButtonBar';
 import GameArea from './components/GameArea';
-import {Line, RealEntity} from './rust_interop/tauri_types';
 
 import './App.module.css';
+import { GameContext, GameManager } from './rust_interop/game_manager';
+import { clear } from './rust_interop/tauri_commands';
+import { useScroll } from './event/event_managers';
 
-function initializeGame(setLines: Setter<Line[]>) {
-    addEntity({
-        boshSled: {starting_position: [0, 0]},
-    }).catch((err) => console.error(err));
+async function initializeGame(gameManager: GameManager) {
+	await clear();
 
-    addLine({
-        ends: [
-            {
-                location: [-50, 0],
-            },
-            {
-                location: [50, 30],
-            },
-        ],
-        flipped: false,
-        lineType: 'Normal',
-    })
-        .then((newLines) => setLines(newLines))
-        .catch((err) => console.error(err));
+	await gameManager.addEntity({
+		boshSled: { position: [0, 0] },
+	});
+
+	await gameManager.addLine({
+		ends: [
+			{
+				location: [-50, 0],
+			},
+			{
+				location: [50, 30],
+			},
+		],
+		flipped: false,
+		lineType: 'Normal',
+	});
 }
 
 const App: Component = () => {
-    const [frame, setFrame] = createSignal(0);
-    const [entities, setEntities] = createSignal<RealEntity[]>([]);
-    const [lines, setLines] = createSignal<Line[]>([]);
+	const gameManager = new GameManager();
+	const [zoom, setZoom] = createSignal(1);
 
-    onMount(() => {
-        initializeGame(setLines);
-    });
+	onMount(() => {
+		initializeGame(gameManager).catch(console.error);
+	});
 
-    // set riders when frame changes
-    createEffect(() => {
-        entityPositionsAt(frame())
-            .then((pos) => setEntities(pos))
-            .catch((err) => console.error(err));
-    });
+	useScroll((ev) => {
+		setZoom(zoom() + -ev.deltaY / 500);
+		console.log(zoom());
+	});
 
-    // add event listener for keybinds
-    window.addEventListener('keydown', keyDown);
-    onCleanup(() => {
-        window.removeEventListener('keydown', keyDown);
-    });
+	// add event listener for keybinds
+	window.addEventListener('keydown', keyDown);
+	onCleanup(() => {
+		window.removeEventListener('keydown', keyDown);
+	});
 
-    const game = createMemo(() => ({
-        frame: frame,
-        setFrame: setFrame,
-        lines: lines,
-        entities: entities,
-    }));
-
-    return (
-        <div>
-            <ErrorBoundary fallback={'error lol'}>
-                <GameContext.Provider value={game()}>
-                    <ButtonBar
-                        style={{
-                            position: 'absolute',
-                            width: '100%',
-                            display: 'flex',
-                            'justify-content': 'center',
-                        }}
-                    />
-                    <GameArea
-                        camera={{
-                            x:
-                                entities()[0]?.points?.BoshButt
-                                    ?.location?.[0] ?? 0,
-                            y:
-                                entities()[0]?.points?.BoshButt
-                                    ?.location?.[1] ?? 0,
-                        }}
-                        zoom={5}
-                    />
-                </GameContext.Provider>
-            </ErrorBoundary>
-        </div>
-    );
+	return (
+		<div>
+			<ErrorBoundary fallback={'error lol'}>
+				<GameContext.Provider value={gameManager}>
+					<ButtonBar
+						style={{
+							position: 'absolute',
+							width: '100%',
+							display: 'flex',
+							'justify-content': 'center',
+						}}
+					/>
+					<GameArea
+						camera={{
+							x:
+								gameManager.entities()[0]?.points?.BoshButt
+									?.location?.[0] ?? 0,
+							y:
+								gameManager.entities()[0]?.points?.BoshButt
+									?.location?.[1] ?? 0,
+						}}
+						zoom={Math.exp(zoom())}
+					/>
+				</GameContext.Provider>
+			</ErrorBoundary>
+		</div>
+	);
 };
-
-export const GameContext = createContext<{
-    frame: JSX.Accessor<number>;
-    setFrame: Setter<number>;
-    lines: JSX.Accessor<Line[]>;
-    entities: JSX.Accessor<RealEntity[]>;
-}>({
-    frame: () => 0,
-    setFrame: (() => undefined) as Setter<number>,
-    lines: () => [],
-    entities: () => [],
-});
 
 export default App;

@@ -12,17 +12,28 @@ type Result<T> = anyhow::Result<T>;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LRComTrack {
+    #[serde(skip)]
     next_line_id: u64,
-    label: String,
-    creator: String,
-    description: String,
-    duration: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    creator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration: Option<u64>,
     version: String,
-    audio: Option<()>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    audio: Option<String>,
     #[serde(rename = "startPosition")]
     start_position: LRComVec2,
-    riders: Vec<LRComEntity>,
-    lines: Vec<LRComLine>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    riders: Option<Vec<LRComEntity>>,
+
+    #[serde(default)]
+    lines: Option<Vec<LRComLine>>,
+    #[serde(rename = "linesArray", default, skip_serializing)]
+    lines_array: Option<Vec<LRComLineArray>>,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
@@ -31,16 +42,16 @@ pub struct LRComEntity {
     start_position: LRComVec2,
     #[serde(rename = "startVelocity")]
     start_velocity: LRComVec2,
-    remountable: bool,
+    remountable: u8, // ... why is this not a boolean? are there more values?
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct LRComVec2 {
     x: f64,
     y: f64,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct LRComLine {
     id: u64,
     #[serde(rename = "type")]
@@ -56,7 +67,26 @@ pub struct LRComLine {
     right_extended: bool,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct LRComLineArray(LRComLineType, u64, f64, f64, f64, f64, u8, bool);
+
+impl From<LRComLineArray> for LRComLine {
+    fn from(why: LRComLineArray) -> LRComLine {
+        LRComLine {
+            line_type: why.0,
+            id: why.1,
+            x1: why.2,
+            y1: why.3,
+            x2: why.4,
+            y2: why.5,
+            right_extended: why.6 & 0b10 > 0,
+            left_extended: why.6 & 0b1 > 0,
+            flipped: why.7,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 #[repr(u8)]
 #[serde(try_from = "u8", into = "u8")]
 pub enum LRComLineType {
@@ -173,7 +203,7 @@ impl TryFrom<&BoshTFEntity> for LRComEntity {
             BoshTFEntity::BoshSled { position, velocity } => Ok(LRComEntity {
                 start_position: position.into(),
                 start_velocity: velocity.into(),
-                remountable: false,
+                remountable: 0,
             }),
         }
     }
@@ -189,10 +219,9 @@ impl From<&LRComEntity> for BoshTFEntity {
 }
 
 impl From<&LRComTrack> for BoshTFTrack {
-    fn from(track: &LRComTrack) -> Self {
-        let entities = if track.riders.len() > 0 {
-            track
-                .riders
+    fn from(track: &LRComTrack) -> BoshTFTrack {
+        let entities = if let Some(riders) = &track.riders {
+            riders
                 .iter()
                 .map(|ent| BoshTFEntity::BoshSled {
                     velocity: (&ent.start_velocity).into(),
@@ -206,7 +235,23 @@ impl From<&LRComTrack> for BoshTFTrack {
             }]
         };
 
-        let lines = track.lines.iter().map(|l| l.into()).collect();
+        let lines = if let Some(lines) = &track.lines {
+            lines.iter().map(|l| l.into()).collect()
+        } else if let Some(lines) = &track.lines_array {
+            lines
+                .iter()
+                .map(|l| {
+                    eprintln!("{:?}", l);
+                    let obj = &LRComLine::from(*l);
+                    eprintln!("{:?}", obj);
+                    let bosh = BoshTFLine::from(obj);
+                    eprintln!("{:?}", obj);
+                    bosh
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         BoshTFTrack {
             meta: Default::default(),
@@ -243,15 +288,16 @@ impl TryFrom<&BoshTFTrack> for LRComTrack {
 
         Ok(LRComTrack {
             next_line_id: lines.len() as u64,
-            label: "created with bosh".to_string(),
-            creator: "created with bosh".to_string(),
-            description: "created with bosh".to_string(),
-            duration: 0,
+            label: None,
+            creator: None,
+            description: None,
+            duration: None,
             version: "6.2".to_string(),
             audio: None,
             start_position: first_entity.start_position,
-            riders,
-            lines,
+            riders: Some(riders),
+            lines: Some(lines),
+            lines_array: None,
         })
     }
 }

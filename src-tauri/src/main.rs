@@ -3,7 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-use std::ops::Deref;
 use std::sync::Mutex;
 
 use bosh_rs::rider::Entity;
@@ -26,14 +25,15 @@ fn main() {
             remove_line,
             add_entity,
             remove_entity,
-            entity_positions_at
+            entity_positions_at,
+            load_track,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[command]
-fn add_line(line: Line) -> anyhow::Result<Vec<Line>, String> {
+fn add_line(line: Line) -> Result<Vec<Line>, String> {
     let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
     track.add_line(line);
@@ -51,7 +51,7 @@ fn remove_line(line: Line) -> Result<Vec<Line>, String> {
 }
 
 #[command]
-fn add_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
+fn add_entity(entity: BoshTFEntity) -> Result<(), String> {
     let entity: Entity = (&entity).into();
     let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
@@ -61,7 +61,7 @@ fn add_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
 }
 
 #[command]
-fn remove_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
+fn remove_entity(entity: BoshTFEntity) -> Result<(), String> {
     let entity: Entity = (&entity).into();
     let mut track = TRACK.lock().map_err(|err| err.to_string())?;
 
@@ -71,23 +71,32 @@ fn remove_entity(entity: BoshTFEntity) -> anyhow::Result<(), String> {
 }
 
 #[command]
-fn entity_positions_at(frame: usize) -> anyhow::Result<Vec<Entity>, String> {
+fn entity_positions_at(frame: usize) -> Result<Vec<Entity>, String> {
     let serialized_positions = TRACK
         .lock()
-        .map_err(|err| err.to_string())?
+        .map_err(|err| {
+            eprintln!("{}", err);
+            err.to_string()
+        })?
         .entity_positions_at(frame);
 
     Ok(serialized_positions)
 }
 
 #[command]
-fn load_track(path: String) -> anyhow::Result<BoshTFTrack> {
-    track_loading::load(&path)
+fn load_track(path: String) -> Result<BoshTFTrack, String> {
+    let track = track_loading::load(&path).map_err(|err| {
+        eprintln!("{:#}", err);
+        err.to_string()
+    })?;
+    *TRACK.lock().map_err(|err| err.to_string())? = (&track).into();
+
+    Ok(track)
 }
 
 #[command]
 fn clear() {
-    let mut track = TRACK.deref().lock().unwrap();
+    let mut track = TRACK.lock().unwrap();
 
     *track = Track::new(vec![], vec![]);
 }
