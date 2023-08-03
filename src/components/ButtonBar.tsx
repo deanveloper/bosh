@@ -1,6 +1,7 @@
 import { JSX, useContext } from 'solid-js';
 import HoldableButton from './HoldableButton';
 import { GameContext } from '../rust_interop/game_manager';
+import { openSingleFilePicker } from './filePicker';
 
 function ButtonBar(props: { style?: JSX.CSSProperties }): JSX.Element {
 	const gameManager = useContext(GameContext);
@@ -19,11 +20,15 @@ function ButtonBar(props: { style?: JSX.CSSProperties }): JSX.Element {
 				{'>'}
 			</HoldableButton>
 			<button
-				onClick={() =>
-					gameManager.loadTrack(
-						'C:/Users/dean/Desktop/uh oh.trk',
-					)
-				}
+				onClick={() => {
+					openSingleFilePicker()
+						.then((path) => {
+							path && gameManager.loadTrack(path);
+						})
+						.catch((err) => {
+							console.error(err);
+						})
+				}}
 			>
 				Load Track
 			</button>
