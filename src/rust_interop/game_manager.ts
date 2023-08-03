@@ -37,8 +37,6 @@ export class GameManager {
 
 	async setFrame(frame: number) {
 		const entities = await entityPositionsAt(frame);
-		console.log(frame);
-		console.log(entities[0].points.SledPeg.location);
 		this.#setEntities(entities);
 		this.#setFrame(frame);
 	}
